@@ -1,0 +1,121 @@
+{
+ "generated_at": "2026-11-19T00:55:00Z",
+ "repos": [
+  {
+   "repo": "Akillll-DuoHe/fy-code-animation",
+   "sha": "d9a545afa393b2ffab4f36e87371691daf8e502c"
+  },
+  {
+   "repo": "Alice39s/agent-stash",
+   "sha": "fa7aaed00037cb85290e96c3c04196b7d9b66e87"
+  },
+  {
+   "repo": "Illyism/seo-skills",
+   "sha": "99d51a33db135cf278c7e61cf3dd1b502e2390b4"
+  },
+  {
+   "repo": "Jeffallan/claude-skills",
+   "sha": "67c1961b180dc92cf08983344627109e983e8f51"
+  },
+  {
+   "repo": "KurohaneKaoruko/DSH-Creator",
+   "sha": "e9a8e121a2ce9cd5e8d2721a31ab5ba7c1a399f3"
+  },
+  {
+   "repo": "YanKaFei/art-aesthetic-vault",
+   "sha": "586557b54677a8d23f4bda1f5195ec2006ef628f"
+  },
+  {
+   "repo": "addyosmani/agent-skills",
+   "sha": "39b723ceebf81474d0557c1fecd01eddab585563"
+  },
+  {
+   "repo": "adoresever/baimiao",
+   "sha": "ce1959ec6359404cacd8e496b88058856b26a1e9"
+  },
+  {
+   "repo": "alirezarezvani/claude-skills",
+   "sha": "f8593c4941210a621a6629ce1da9e07897976d5f"
+  },
+  {
+   "repo": "anthropics/skills",
+   "sha": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"
+  },
+  {
+   "repo": "cursor/plugins",
+   "sha": "35a90942a7f02e1ebbc2443643179815f2147954"
+  },
+  {
+   "repo": "elementalsouls/Claude-BugHunter",
+   "sha": "b63ae349afad88772e6d854a277ae9965fd4c369"
+  },
+  {
+   "repo": "google-labs-code/stitch-skills",
+   "sha": "4cf4db8e4143b09e40f9bc887429d81f41ab3947"
+  },
+  {
+   "repo": "google/skills",
+   "sha": "609310dcb093f772721b0adec46363faa3bcf652"
+  },
+  {
+   "repo": "haowjy/creative-writing-skills",
+   "sha": "f82136686fac78c218061b2552e170d2044d605e"
+  },
+  {
+   "repo": "janestreet/agent_skills",
+   "sha": "469868f4489cbdbe178c775a0af05bb6bef63689"
+  },
+  {
+   "repo": "justskill-ai/justskill-design",
+   "sha": "2cd444d301e059c0bb3b36c1c6d8d01ca6a01a83"
+  },
+  {
+   "repo": "liangdabiao/dsh-reddit-research",
+   "sha": "c4058762e0a1d9b65093ed97aa4df064b70057ed"
+  },
+  {
+   "repo": "mrgoonie/claudekit-skills",
+   "sha": "80113d86bc4407f105af40a2c4ea58194f7c370a"
+  },
+  {
+   "repo": "mvanhorn/last30days-skill",
+   "sha": "a854f3bcb2c4344d7498426d653378510f8b253a"
+  },
+  {
+   "repo": "obra/superpowers",
+   "sha": "22f0b463e7a5e579904dd6211a520321035526f7"
+  },
+  {
+   "repo": "realchendahuang/dsh-skill",
+   "sha": "760cbfacca4dba758adf0507bfb26e66cba55389"
+  },
+  {
+   "repo": "remotion-dev/skills",
+   "sha": "6f55706d1069e512430582ad86e4e57dc07afe1b"
+  },
+  {
+   "repo": "sixtysevenlf/dsh-skill-blender-modeling",
+   "sha": "10d78cd1dd252bb09436d2a365d549b2b5910b10"
+  },
+  {
+   "repo": "the-thinker0/math-skill",
+   "sha": "ccad250e2f716b97fb7252f622d60962f323387d"
+  },
+  {
+   "repo": "vercel-labs/agent-skills",
+   "sha": "1a2c79d4e6c4a2283dc2c614b6538cbe1ed5ca62"
+  },
+  {
+   "repo": "vythanhtra/perplexity-skills",
+   "sha": "48d54f32a13eaf16b7a65297e9400c0d8ecd1af2"
+  },
+  {
+   "repo": "whobot-com/openclaw-whobot-skill",
+   "sha": "62f227b076de823a9fe890b374798ed970a7c909"
+  },
+  {
+   "repo": "yzfly/awesome-dsh-skills",
+   "sha": "d11bb558b891866a4248bd78f0946bbd1c54630d"
+  }
+ ]
+}

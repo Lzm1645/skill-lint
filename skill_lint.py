@@ -16,18 +16,65 @@ import sys
 from pathlib import Path
 
 TEXT_EXT = {".md", ".txt", ".py", ".js", ".ts", ".sh", ".bash", ".zsh", ".json", ".yaml", ".yml"}
-SENSITIVE = [
+
+# L04：只在“确实去读/取”的语境里报敏感路径。扫描公开技能库时，绝大多数命中是
+# 「不要提交 .env」「deny 规则里列出 ~/.ssh」这类文档/防护语句，按纯关键词报会淹掉信号。
+SENSITIVE_READ = [
     (r"~/\.ssh|/\.ssh", "SSH 目录"),
     (r"id_rsa|id_ed25519", "SSH 私钥"),
     (r"\.aws/|AWS_SECRET", "AWS 凭证"),
     (r"\.config/gh", "GitHub CLI 凭证"),
     (r"\.npmrc", "npm token"),
     (r"(?<![\w.])\.env(?![\w])", ".env 文件"),
-    (r"printenv|\benv\s*\|", "环境变量导出"),
-    (r"security find-generic-password|keychain", "Keychain"),
+    (r"\bkeychain\b", "Keychain"),
 ]
-MUTATING = r"delete|remove|destroy|deploy|--prod|\bapply\b|\bwrite\b|\bupdate\b|\bmanage\b"
-HOOK_TARGET = r"settings\.json|\.claude/|\.cursor/|hooks?"
+SENSITIVE_COMMAND = [
+    (r"\bprintenv\b", "环境变量导出"),
+    (r"(?:^|[$;`]\s*)env\s*\|\s*(?:grep|rg|sort|head|tail|awk|cut|uniq|wc|tr|less|more)\b", "环境变量导出"),
+    (r"security find-generic-password", "Keychain"),
+]
+# “读取”动作：cat/open(...)/Read(...)/dotenv 等；只用于收紧 L04，不追求完备。
+ACCESS_HINT = re.compile(
+    r"(?i)(?:\b(?:cat|less|more|head|tail|grep|rg|awk|sed|cp|rsync|scp|tar|read|source|dotenv)\b"
+    r"|open\s*\(|read_text|read_bytes|readfile|readfilesync|Read\s*\()"
+)
+# 文档/防护/占位语境：命中这些词的同一行不视为“实际读取”。
+SAFE_HINT = re.compile(
+    r"(?i)(never|not\s+commit|do\s+not|don't|avoid|deny|block|protect|redact|ignore|placeholder"
+    r"|template|gitignore|regex|pattern|noqa|SECRET_HINTS|detect|\*\*\*"
+    r"|\.env\.(?:example|sample|template|test|dist))"
+)
+
+# L03：XML 命名空间是可下载 schema 的标识符，不是出网目的地；占位域名与模板 URL 同理。
+SCHEMA_HOSTS = {
+    "schemas.openxmlformats.org", "schemas.microsoft.com", "schemas.android.com",
+    "schemas.xmlsoap.org", "www.w3.org", "openoffice.org", "json-schema.org",
+    "www.sitemaps.org", "xmlns.com", "schema.org", "purl.org", "ns.adobe.com",
+    "www.idpf.org", "idpf.org",
+}
+PLACEHOLDER_HOSTS = {"example.com", "example.org", "example.net", "www.example.com"}
+
+# L07：只把“会实际发生的破坏性命令”当作写/删/部署路径；散文里的
+# deployment/update/remove 是说明文字，不构成可执行能力。
+MUTATING_CMD = re.compile(
+    r"""(?ix)
+    (?:^|[\s`;:=\[(])
+    (?:
+        rm\s+(?:-[a-z]*[rf][a-z]*|/)
+      | git\s+(?:push|reset\s+--hard|clean\s+-[a-z]*f)
+      | (?:docker|podman)\s+(?:push|rm)\b
+      | kubectl\s+(?:apply|delete)\b
+      | terraform\s+(?:apply|destroy)\b
+      | (?:npm|pnpm|yarn)\s+publish\b
+      | gh\s+release\s+(?:create|delete)\b
+      | (?:vercel|fly|flyctl|heroku|netlify)\s+(?:deploy|--prod)\b
+      | aws\s+\S+\s+(?:delete|terminate|stop|modify)\b
+      | drop\s+(?:table|database|schema)\b
+      | truncate\s+table\b
+      | (?:psql|mysql)\b[^\n]*\b(?:drop|delete|truncate)\b
+    )
+    """
+)
 
 
 def read_frontmatter(text: str) -> dict:
@@ -80,32 +127,70 @@ def lint(root: Path) -> dict:
             if re.search(r"pip\s+install\s+(?!-r)[^\n]*", line) and "==" not in line:
                 add("L02", "warn", "pip install 未固定版本", path, i)
 
-    # L03 出网目的地
+    # L03 出网目的地：代码块里的 http/IP 是真实的出网路径 -> block；
+    # 文档/参考链接里的 http 只降为 warn，避免把“引用了一份 http 文档”当成能力。
     allowed_hosts = set()
     raw_hosts = str(fm.get("allowed-hosts") or fm.get("allowed_hosts") or "")
     for host in re.split(r"[,\s]+", raw_hosts):
         if host:
             allowed_hosts.add(host.strip().lower())
-    urls = set(re.findall(r"https?://[^\s)\"'<]+", alltext))
-    for url in sorted(urls):
-        if re.search(r"licen[cs]e|apache\.org/licenses|opensource\.org|creativecommons", url, re.I):
-            continue
-        host = re.sub(r"https?://", "", url).split("/")[0].split(":")[0].lower()
-        if host in ("localhost", "127.0.0.1"):
-            add("L03", "warn", f"本地地址：{url}（确认仅本地使用）", skill_md)
-            continue
-        if url.startswith("http://") or re.match(r"^\d+\.\d+\.\d+\.\d+$", host):
-            add("L03", "block", f"非 HTTPS/IP 直连：{url}", skill_md)
-        elif any(bad in host for bad in ("pastebin", "transfer.sh", "webhook.site", "ngrok")):
-            add("L03", "block", f"高风险外发域名：{host}", skill_md)
-        elif allowed_hosts and host not in allowed_hosts:
-            add("L03", "warn", f"未声明的外发域名：{host}", skill_md)
+    # 出处/仓库链接是元数据，不是能力会访问的目的地。
+    provenance_urls = set(re.findall(r"https?://[^\s)\"'<]+", "\n".join(str(v) for v in fm.values())))
+    findings = {}  # url -> (rank, severity, message)
+    for path, text in texts.items():
+        in_fence = False
+        for line in text.splitlines():
+            stripped = line.lstrip()
+            if stripped.startswith(("```", "~~~")):
+                in_fence = not in_fence
+                continue
+            for match in re.finditer(r"https?://[^\s)\"'<]+", line):
+                url = match.group(0).rstrip(";,.`")
+                if not url:
+                    continue
+                if url in provenance_urls:
+                    continue
+                if re.search(r"licen[cs]e|apache\.org/licenses|opensource\.org|creativecommons", url, re.I):
+                    continue
+                host = re.sub(r"https?://", "", url).split("/")[0].split(":")[0].lower()
+                if (host in SCHEMA_HOSTS or host in PLACEHOLDER_HOSTS
+                        or host.endswith((".example", ".example.com", ".example.org", ".example.net"))
+                        or (host.endswith(".internal") and host != "metadata.google.internal")  # 云元数据是真实 SSRF 目标
+                        or "." not in host or host in ("0.0.0.0", "[::]")):
+                    continue
+                # {VAR}/$VAR/正则片段不是可访问的目的地，报出来只是噪声。
+                if re.search(r"[{}|\\()\[\]$]", url) or not re.search(r"[a-z0-9]", host):
+                    continue
+                if host in ("localhost", "127.0.0.1"):
+                    severity, message = "warn", f"本地地址：{url}（确认仅本地使用）"
+                elif url.startswith("http://") or re.match(r"^\d+\.\d+\.\d+\.\d+$", host):
+                    if in_fence:
+                        severity, message = "block", f"非 HTTPS/IP 直连：{url}"
+                    else:
+                        severity, message = "warn", f"文档引用里的非 HTTPS 链接：{url}"
+                elif any(bad in host for bad in ("pastebin", "transfer.sh", "webhook.site", "ngrok")):
+                    severity, message = "block", f"高风险外发域名：{host}"
+                elif allowed_hosts and host not in allowed_hosts:
+                    severity, message = "warn", f"未声明的外发域名：{host}"
+                else:
+                    continue
+                rank = 2 if severity == "block" else 1
+                if url not in findings or rank > findings[url][0]:
+                    findings[url] = (rank, severity, message)
+    for url in sorted(findings):
+        _, severity, message = findings[url]
+        add("L03", severity, message, skill_md)
 
-    # L04 敏感路径/环境变量
+    # L04 敏感路径/环境变量：只有“实际读取/执行”才报；文档、deny 规则、占位符不报。
     for path, text in texts.items():
         for i, line in enumerate(text.splitlines(), 1):
-            for pattern, label in SENSITIVE:
-                if re.search(pattern, line):
+            for pattern, label in SENSITIVE_READ:
+                if re.search(pattern, line) and ACCESS_HINT.search(line) and not SAFE_HINT.search(line):
+                    add("L04", "block", f"读取敏感信息：{label}", path, i)
+                    break
+        for i, line in enumerate(text.splitlines(), 1):
+            for pattern, label in SENSITIVE_COMMAND:
+                if re.search(pattern, line) and not SAFE_HINT.search(line):
                     add("L04", "block", f"读取敏感信息：{label}", path, i)
                     break
 
@@ -122,9 +207,9 @@ def lint(root: Path) -> dict:
             if re.search(r"shell\s*=\s*True|os\.system|os\.popen|eval\(|exec\(", line):
                 add("L06", "warn", "命令/代码注入面（shell=True/eval/exec）", path, i)
 
-    # L07 写操作确认门
+    # L07 写操作确认门：只有真实会执行的破坏性命令才算，散文里的 deployment/update 不算。
     confirm = re.search(r"confirm|--yes|--dry-run|二次确认|确认", alltext, re.I)
-    if re.search(MUTATING, alltext, re.I) and not confirm:
+    if MUTATING_CMD.search(alltext) and not confirm:
         add("L07", "block", "存在写/删/部署路径但没有确认或 dry-run", skill_md)
     if re.search(r"else\s*:\s*\n\s+[^\n]*(delete|remove|manage)\(", alltext):
         add("L07", "block", "fail-open：识别失败时落入写操作分支", skill_md)
@@ -144,9 +229,16 @@ def lint(root: Path) -> dict:
     # L10 可追溯/自更新
     if not (fm.get("repo") or fm.get("license") or fm.get("provenance")):
         add("L10", "warn", "缺少 repo/license/provenance", skill_md)
+    # 只有“动词在目标路径附近”才算写入指令；描述性提到 settings 文件不算。
+    WRITE_THEN_TARGET = re.compile(
+        r"(?i)(?<![a-z_])(?:add(?:s|ed|ing)?|append(?:s|ed|ing)?|install(?:s|ed|ing)?|copy|copies|copied"
+        r"|write|writes|writing|edit(?:s|ed|ing)?|update[sd]?|overwrite|replace[sd]?|patch(?:es|ed|ing)?|cp)"
+        r"(?![a-z_])[^\n]{0,60}(?:settings\.json|\.claude/(?:settings|hooks|config)|\.cursor/(?:settings|hooks)"
+        r"|\.codex/config|(?<![a-z])hooks?/)"
+    )
     for path, text in texts.items():
         for i, line in enumerate(text.splitlines(), 1):
-            if re.search(HOOK_TARGET, line) and re.search(r"write|update|install|upgrade", line):
+            if WRITE_THEN_TARGET.search(line):
                 add("L10", "block", "写 hooks/settings 或自更新", path, i)
 
     blocks = [i for i in issues if i["severity"] == "block"]
