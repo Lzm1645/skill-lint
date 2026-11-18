@@ -46,7 +46,7 @@ python3 skill_lint.py path/to/skill --json
 
 ## 公开仓库扫描（2026-11）
 
-用本工具扫描了 29 个公开 Agent Skill 仓库（1,352 个 skill，覆盖 dsh / Claude Code / Codex 生态），
+用本工具扫描了 29 个公开 Agent Skill 仓库（1,348 个 skill，覆盖 dsh / Claude Code / Codex 生态），
 记录 block/warn 分布、高频风险模式、逐条误报审计和规则收敛前后对比：
 
 - 报告：[scan/report-2026-11.md](scan/report-2026-11.md)
